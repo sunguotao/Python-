@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<!-- saved from url=(0053)file:///Users/jndl/Desktop/Chrome/download%20(6).html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>实训项目（三）——京东商品数据抓取</title><link href="./实训项目（三）——京东商品数据抓取_files/marxico.css" rel="stylesheet"><style>.note-content  {font-family: 'Helvetica Neue', Arial, 'Hiragino Sans GB', STHeiti, 'Microsoft YaHei', 'WenQuanYi Micro Hei', SimSun, Song, sans-serif;width:800px;margin:0 auto;}</style></head><body><div id="preview-contents" class="note-content">
+
+
+
+<h2 id="爬虫实训项目三京东商品分布式爬取">实训项目（三）——京东商品数据抓取</h2>
+<p>&nbsp; &nbsp; &nbsp;</p>
+<p>Scrapy框架中分两类爬虫，Spider类和CrawlSpider类。此案例采用的是CrawlSpider类实现爬虫</p>
+
+
+
+<h3 id="什么是crawlspider">什么是CrawlSpider？</h3>
+
+<blockquote>
+  <p><code>CrawlSpider</code> 是爬取那些具有一定规则网站的常用的爬虫，因其定义了一些规则(rule)，提供更加方便的跟进link的机制。它可能并不总是适用于某个特定网站或者项目，但是你可以从CrawlSpider出发，重写一些方法使得CrawlSpider更加适用于你的项目 <br>
+  <br>
+  <code>CrawlSpider</code>是Spider的派生类，Spider类的设计原则是只爬取start_url列表中的网页，而CrawlSpider类定义了一些规则(rule)来提供跟进link的方便的机制，从爬取的网页中提取符合规则的link，适用于大规模抓取</p>
+</blockquote>
+
+<h4 id="crawlspider的特点">CrawlSpider的特点</h4>
+
+<blockquote>
+  <ul><li>爬取一般网站常用的<strong><code>spider类</code></strong> <br>
+  <br></li>
+  <li>它定义了一些<strong><code>规则(rules)</code></strong>来提供跟进link的方便的机制 <br>
+  <br></li>
+  <li>也许该spider<strong><code>并不是完全适合</code></strong>特定网站或项目，但其对很多情况都适用。 因此可以以其为起点，根据需求修改部分方法 <br>
+  <br></li>
+  <li>当然也可以实现自己的spider</li>
+  </ul>
+</blockquote>
+
+
+
+<h4 id="独特的rules属性">独特的rules属性</h4>
+
+<p>CrawlSpider除了从Spider继承过来的(必须提供的)属性外，其提供了一个新的属性：</p>
+
+<ul><li><strong><code>rules</code></strong>: 是Rule对象的<strong><code>集合</code></strong>，用于匹配目标网站并排除干扰，每个 Rule 对爬取网站的动作定义了特定表现。 </li>
+</ul>
+
+<blockquote>
+  <p>Tips：如果多个rule匹配了相同的链接，则根据他们在本属性中被定义的顺序，第一个会被使用</p>
+</blockquote>
+
+<p>因为rules是Rule对象的集合，所以这里也要介绍一下Rule。它有几个参数：<strong><code>link_extractor</code></strong>、<strong><code>callback</code></strong>=None、<strong><code>cb_kwargs</code></strong>=None、<strong><code>follow</code></strong>=None、<strong><code>process_links</code></strong>=None、<strong><code>process_request</code></strong>=None，其中的<strong><code>link_extractor</code></strong>既可以自己定义，也可以使用已有LinkExtractor类</p>
+
+<p>主要参数为：</p>
+
+<blockquote>
+  <ul><li>link_extractor：是一个<strong><code>Link Extractor对象</code></strong>，用于定义需要提取的链接 <br>
+  <br></li>
+  <li>callback： 从link_extractor中每获取到链接时，参数所指定的值作为回调函数，该回调函数接受一个response作为其第一个参数 <br>
+  <code>注意：当编写爬虫规则时，避免使用parse作为回调函数。由于CrawlSpider使用parse方法来实现其逻辑，如果覆盖了 parse方法，crawl spider将会运行失败</code> <br>
+  <br></li>
+  <li>follow：是一个<strong><code>布尔值(boolean)</code></strong>，指定了根据该规则从response提取的链接是否需要跟进。 如果callback为None，follow 默认设置为True ，否则默认为False <br>
+  <br></li>
+  <li>process_links：指定该spider中哪个的函数将会被调用，从link_extractor中获取到链接列表时将会调用该函数。该方法主要<strong><code>用来过滤</code></strong> <br>
+  <br></li>
+  <li>process_request：指定该spider中哪个的函数将会被调用， 该规则提取到每个request时都会调用该函数。 (用来<strong><code>过滤request</code></strong>)</li>
+  </ul>
+</blockquote>
+
+<h4 id="链接提取器link-extractors">链接提取器（Link Extractors）</h4>
+
+
+
+<h5 id="什么是link-extractors">什么是Link Extractors？</h5>
+
+<p>Link Extractors 是那些目的仅仅是从网页(scrapy.http.Response 对象)中抽取最终将会被follow链接的对象，Link Extractors 的目的很简单: <strong><code>提取链接</code></strong></p>
+
+<p>每个link extractor有<strong><code>唯一</code></strong>的公共方法是<strong><code>extract_links</code></strong> ,它接收一个 <strong>Response</strong>对象，并返回一个 <strong>scrapy.link.Link </strong>对象</p>
+
+<blockquote>
+  <p>Link Extractors，要实例化一次并且 <strong>extract_links</strong> 方法会根据不同的response调用多次提取链接</p>
+</blockquote>
+
+<h5 id="内置link-extractor-参考">内置Link Extractor 参考：</h5>
+
+<p>Scrapy提供的Link Extractor类在 <strong><code>scrapy.linkextractors</code></strong> 模块提供｡ 默认的link extractor是 LinkExtractor , 其实就是 LxmlLinkExtractor：</p>
+
+<blockquote>
+  <p>from scrapy.contrib.linkextractors import LinkExtractor</p>
+</blockquote>
+
+<p><strong>主要参数为：</strong></p>
+
+<blockquote>
+  <ul><li>allow：满足括号中<strong><code>正则表达式</code></strong>的值会被提取，如果为空，则全部匹配 <br>
+  <br></li>
+  <li>deny：与这个<strong><code>正则表达式</code></strong>(或正则表达式列表)不匹配的URL一定不提取 <br>
+  <br></li>
+  <li>allow_domains：<strong><code>会被提取</code></strong>的链接的domains <br>
+  <br></li>
+  <li>deny_domains：<strong><code>一定不会被提取</code></strong>链接的domains <br>
+  <br></li>
+  <li>restrict_xpaths：使用xpath表达式，和allow共同作用<strong><code>过滤链接</code></strong>。还有一个类似的<strong><code>restrict_css</code></strong></li>
+  </ul>
+</blockquote>
+
+<h4 id="crawlspider如何工作的">CrawlSpider如何工作的？</h4>
+
+<p>因为CrawlSpider<strong><code>继承</code></strong>了Spider，所以具有Spider的<strong><code>所有函数</code></strong></p>
+
+<p><img src="file:///Users/jndl/Desktop/Chrome/1511836694227.png" alt="" title="" width="600" style="margin: auto; display: block; text-align: center;"></p>
+
+<ol><li rel="1">由<strong><code>start_requests</code></strong>对<strong><code>start_urls</code></strong>中的每一个url发起请求（make_requests_from_url)，这个请求会**`被parse接收 <br>
+<br></li>
+<li rel="2">在Spider里面的parse需要我们定义，但CrawlSpider定义parse去<strong><code>解析响应</code></strong>（self._parse_response(response, self.parse_start_url, cb_kwargs={}, follow=True)） <br>
+<br></li>
+<li rel="3">_parse_response根据有无<strong><code>callback</code></strong>，<strong><code>follow</code></strong>和<strong><code>self.follow_links</code></strong>执行不同的操作 <br>
+<br></li>
+<li rel="4">其中<strong><code>_requests_to_follow</code></strong>又会获取<strong><code>link_extractor</code></strong>（这个是传入的LinkExtractor）解析页面得到的<strong><code>link</code></strong>（link_extractor.extract_links(response)），对url进行加工（process_links，需要自定义），对符合的link<strong><code>发起Request</code></strong>。使用.process_request(需要自定义）处理响应</li>
+</ol>
+
+<h4 id="crawlspider如何获取rules">CrawlSpider如何获取rules？</h4>
+
+<p>CrawlSpider类会在<strong><code>__init__</code></strong>方法中调用<strong><code>_compile_rules</code></strong>方法，然后在其中浅拷贝rules中的各个Rule获取要用于<strong><code>回调(callback)</code></strong>，要进行处理的<strong><code>链接（process_links）</code></strong>和要进行的<strong><code>处理请求（process_request)</code></strong></p>
+
+
+
+<h3 id="案例演示京东商品信息爬取">案例演示：京东商品信息爬取</h3>
+
+<p>京东商品爬取难点在于全站信息，爬取全站所有信息的最好的方法就是使用通用爬虫CrawlSpider</p>
+
+<h4 id="爬取步骤">爬取步骤：</h4>
+
+<blockquote>
+  <ol><li rel="1">浏览京东网站，寻找商品信息接口 <br>
+  <br></li>
+  <li rel="2">使用LinkExtractor抓取所有链接，用allow_domains限制爬取信息接口 <br>
+  <br></li>
+  <li rel="3">使用正则，抓取商品id，拼接商品详情链接 <br>
+  <br></li>
+  <li rel="4">抓取商品详情以及价格 <br>
+  <br></li>
+  <li rel="5">尝试分布式爬取</li>
+  </ol>
+</blockquote>
+
+
+
+<h4 id="代码实现">代码实现：</h4>
+
+<ol start="1"><li rel="1">使用命令，建立<strong><code>scrapy文件</code></strong>以及<strong><code>CrawlSpider文件</code></strong></li>
+</ol>
+
+<blockquote>
+  <p>&gt;&gt;&gt;scrapy startproject jd</p>
+  
+  <p>&gt;&gt;&gt;cd jd</p>
+  
+  <p>&gt;&gt;&gt;scrapy genspider -t crawl  jd_spider ‘m.jd.com’</p>
+</blockquote>
+
+<ol start="2"><li rel="2">编写jd_spider.py文件，该文件主要负责<strong><code>爬取链接</code></strong>以及<strong><code>商品详情信息</code></strong></li>
+</ol>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="language-python hljs"><div class="hljs-line"><span class="hljs-comment"># -*- coding: utf-8 -*-</span>
+</div><div class="hljs-line"><span class="hljs-keyword">import</span> scrapy
+</div><div class="hljs-line"><span class="hljs-keyword">from</span> scrapy.spiders <span class="hljs-keyword">import</span> CrawlSpider,Rule
+</div><div class="hljs-line"><span class="hljs-keyword">from</span> scrapy.linkextractors <span class="hljs-keyword">import</span> LinkExtractor
+</div><div class="hljs-line"><span class="hljs-keyword">from</span> scrapy.http <span class="hljs-keyword">import</span> Request
+</div><div class="hljs-line"><span class="hljs-keyword">import</span> json
+</div><div class="hljs-line"><span class="hljs-keyword">import</span> re
+</div><div class="hljs-line"><span class="hljs-keyword">import</span> pprint
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">JdSpiderSpider</span><span class="hljs-params">(CrawlSpider)</span>:</span>
+</div><div class="hljs-line">    name = <span class="hljs-string">'jd_spider'</span>    <span class="hljs-comment">#老朋友，爬虫名字，必不可少</span>
+</div><div class="hljs-line">    allowed_domains = [<span class="hljs-string">'jd.com'</span>,<span class="hljs-string">'p.3.cn'</span>]
+</div><div class="hljs-line">    start_urls = [<span class="hljs-string">'http://m.jd.com/'</span>] 
+</div><div class="hljs-line">
+</div><div class="hljs-line">    rules = [
+</div><div class="hljs-line">        Rule(LinkExtractor(allow = ()),      <span class="hljs-comment">#允许抓取所有链接</span>
+</div><div class="hljs-line">             callback = <span class="hljs-string">'parse_shop'</span>,        <span class="hljs-comment">#回调parse_shop函数</span>
+</div><div class="hljs-line">             follow = <span class="hljs-keyword">True</span>                   <span class="hljs-comment">#跟随链接</span>
+</div><div class="hljs-line">             ),
+</div><div class="hljs-line">        ]
+</div><div class="hljs-line">
+</div><div class="hljs-line">    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">parse_shop</span><span class="hljs-params">(self, response)</span>:</span>
+</div><div class="hljs-line">        <span class="hljs-keyword">pass</span>
+</div><div class="hljs-line">        ware_id_list = list()
+</div><div class="hljs-line">        url_group_shop = LinkExtractor(allow = (<span class="hljs-string">r'(http|https)://item.m.jd.com/product/\d+.html'</span>)).extract_links(response)    <span class="hljs-comment">#对链接使用正则表达式进行筛选</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">        re_get_id = re.compile(<span class="hljs-string">r'(http|https)://item.m.jd.com/product/(\d+).html'</span>)    <span class="hljs-comment">#定义抓取正则表达式的抓取规则</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">        <span class="hljs-keyword">for</span> url <span class="hljs-keyword">in</span> url_group_shop:
+</div><div class="hljs-line">            ware_id = re_get_id.search(url.url).group(<span class="hljs-number">2</span>)    <span class="hljs-comment">#抓取出商品id</span>
+</div><div class="hljs-line">            ware_id_list.append(ware_id)                    <span class="hljs-comment">#商品id添加进ware_id_list</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">        <span class="hljs-keyword">for</span> id <span class="hljs-keyword">in</span> ware_id_list:
+</div><div class="hljs-line">            <span class="hljs-string">"""
+</span></div><div class="hljs-line">            https://item.m.jd.com/ware/detail.json?wareId={}
+</div><div class="hljs-line">            https://p.3.cn/prices/mgets?type=1&amp;skuIds=J_{}
+</div><div class="hljs-line">            """
+</div><div class="hljs-line">
+</div><div class="hljs-line">            <span class="hljs-keyword">yield</span> Request(<span class="hljs-string">'https://item.m.jd.com/ware/detail.json?wareId={}'</span>.format(id), <span class="hljs-comment">#拼接详情页面的url</span>
+</div><div class="hljs-line">                          callback = self.detail_pag,
+</div><div class="hljs-line">                          meta = {<span class="hljs-string">'id'</span>:id},
+</div><div class="hljs-line">                          priority=<span class="hljs-number">5</span>
+</div><div class="hljs-line">                          )                         
+</div><div class="hljs-line">
+</div><div class="hljs-line">    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">detail_pag</span><span class="hljs-params">(self,response)</span>:</span>
+</div><div class="hljs-line">        data = json.loads(response.text)
+</div><div class="hljs-line">
+</div><div class="hljs-line">        <span class="hljs-keyword">yield</span> Request(<span class="hljs-string">'https://p.3.cn/prices/mgets?type=1&amp;skuIds=J_{}'</span>.format(response.meta[<span class="hljs-string">'id'</span>]),          <span class="hljs-comment">#拼接价格页面的url</span>
+</div><div class="hljs-line">                      callback=self.get_price_pag,
+</div><div class="hljs-line">                      meta={<span class="hljs-string">'id'</span>: response.meta[<span class="hljs-string">'id'</span>],    <span class="hljs-comment">#把id和data传给下一个函数</span>
+</div><div class="hljs-line">                            <span class="hljs-string">'data'</span>:data
+</div><div class="hljs-line">                            },
+</div><div class="hljs-line">                      priority = <span class="hljs-number">10</span>
+</div><div class="hljs-line">                      )
+</div><div class="hljs-line">
+</div><div class="hljs-line">    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">get_price_pag</span><span class="hljs-params">(self,response)</span>:</span>
+</div><div class="hljs-line">        data = json.loads(response.text)
+</div><div class="hljs-line">        detail_data = response.meta[<span class="hljs-string">'data'</span>]
+</div><div class="hljs-line">        ware_id = response.meta[<span class="hljs-string">'id'</span>]
+</div><div class="hljs-line">        item = {
+</div><div class="hljs-line">            <span class="hljs-string">'detail'</span>:detail_data,
+</div><div class="hljs-line">            <span class="hljs-string">'price'</span>:data,
+</div><div class="hljs-line">            <span class="hljs-string">'ware_id'</span>:ware_id
+</div><div class="hljs-line">            }
+</div><div class="hljs-line">
+</div><div class="hljs-line">        pprint.pprint(item)
+</div><div class="hljs-line">        <span class="hljs-keyword">yield</span> item           <span class="hljs-comment">#转给管道</span>
+</div></code></pre>
+
+<p><br></p>
+
+<ol start="3"><li rel="3">编写pipeline.py，该文件主要<strong><code>负责入库</code></strong> <br>
+<br></li>
+</ol>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs python"><div class="hljs-line"><span class="hljs-keyword">from</span> pymongo <span class="hljs-keyword">import</span> MongoClient
+</div><div class="hljs-line"><span class="hljs-keyword">from</span> scrapy.conf <span class="hljs-keyword">import</span> settings
+</div><div class="hljs-line"><span class="hljs-keyword">from</span> pymongo.errors <span class="hljs-keyword">import</span> DuplicateKeyError
+</div><div class="hljs-line"><span class="hljs-keyword">from</span> traceback <span class="hljs-keyword">import</span> format_exc
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">JdPipeline</span><span class="hljs-params">(object)</span>:</span>
+</div><div class="hljs-line">    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span><span class="hljs-params">(self, mongo_uri, mongo_db)</span>:</span>
+</div><div class="hljs-line">        self.mongo_uri = mongo_uri
+</div><div class="hljs-line">        self.mongo_db = mongo_db
+</div><div class="hljs-line">        self.client = <span class="hljs-keyword">None</span>
+</div><div class="hljs-line">        self.db = <span class="hljs-keyword">None</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta">    @classmethod</span>
+</div><div class="hljs-line">    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">from_crawler</span><span class="hljs-params">(cls, crawler)</span>:</span>
+</div><div class="hljs-line">        <span class="hljs-keyword">return</span> cls(
+</div><div class="hljs-line">            mongo_uri=crawler.settings.get(<span class="hljs-string">'MONGODB_URI'</span>),  <span class="hljs-comment"># 提取出了mongodb配置</span>
+</div><div class="hljs-line">            mongo_db=settings.get(<span class="hljs-string">'MONGODB_DATABASE'</span>, <span class="hljs-string">'items'</span>)
+</div><div class="hljs-line">        )
+</div><div class="hljs-line">
+</div><div class="hljs-line">    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">open_spider</span><span class="hljs-params">(self, spider)</span>:</span>
+</div><div class="hljs-line">        _ = spider
+</div><div class="hljs-line">        self.client = MongoClient(self.mongo_uri)  <span class="hljs-comment"># 连接数据库</span>
+</div><div class="hljs-line">        self.db = self.client[self.mongo_db]
+</div><div class="hljs-line">        self.db[<span class="hljs-string">'jd_info'</span>].ensure_index(<span class="hljs-string">'ware_id'</span>, unique=<span class="hljs-keyword">True</span>)  <span class="hljs-comment"># 在表jd_info中建立索引，并保证索引的唯一性</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">close_spider</span><span class="hljs-params">(self, spider)</span>:</span>
+</div><div class="hljs-line">        _ = spider
+</div><div class="hljs-line">        self.client.close()  <span class="hljs-comment"># 关闭数据库</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">process_item</span><span class="hljs-params">(self, item, spider)</span>:</span>
+</div><div class="hljs-line">        <span class="hljs-keyword">try</span>:
+</div><div class="hljs-line">            self.db[<span class="hljs-string">'jd_info'</span>].update({<span class="hljs-string">'ware_id'</span>: item[<span class="hljs-string">'ware_id'</span>]}, {<span class="hljs-string">'$set'</span>: item}, upsert=<span class="hljs-keyword">True</span>)  <span class="hljs-comment"># 通过id判断，有就更新，没有就插入</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">        <span class="hljs-keyword">except</span> DuplicateKeyError:
+</div><div class="hljs-line">            spider.logger.debug(<span class="hljs-string">' duplicate key error collection'</span>)  <span class="hljs-comment"># 唯一键冲突报错</span>
+</div><div class="hljs-line">        <span class="hljs-keyword">except</span> Exception <span class="hljs-keyword">as</span> e:
+</div><div class="hljs-line">            _ = e
+</div><div class="hljs-line">            spider.logger.error(format_exc())
+</div><div class="hljs-line">        <span class="hljs-keyword">return</span> item
+</div></code></pre>
+
+<p><br></p>
+
+<ol start="4"><li rel="4">编写settings.py，该文件主要负责<strong><code>激活管道</code></strong>以及<strong><code>设置下载时间</code></strong> <br>
+<br></li>
+</ol>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs vala"><div class="hljs-line"><span class="hljs-meta"># -*- coding: utf-8 -*-</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Scrapy settings for jd project</span>
+</div><div class="hljs-line"><span class="hljs-meta">#</span>
+</div><div class="hljs-line"><span class="hljs-meta"># For simplicity, this file contains only settings considered important or</span>
+</div><div class="hljs-line"><span class="hljs-meta"># commonly used. You can find more settings consulting the documentation:</span>
+</div><div class="hljs-line"><span class="hljs-meta">#</span>
+</div><div class="hljs-line"><span class="hljs-meta">#     http://doc.scrapy.org/en/latest/topics/settings.html</span>
+</div><div class="hljs-line"><span class="hljs-meta">#     http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html</span>
+</div><div class="hljs-line"><span class="hljs-meta">#     http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">BOT_NAME = <span class="hljs-string">'jd'</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">SPIDER_MODULES = [<span class="hljs-string">'jd.spiders'</span>]
+</div><div class="hljs-line">NEWSPIDER_MODULE = <span class="hljs-string">'jd.spiders'</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Crawl responsibly by identifying yourself (and your website) on the user-agent</span>
+</div><div class="hljs-line"><span class="hljs-meta">#USER_AGENT = 'jd (+http://www.yourdomain.com)'</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Obey robots.txt rules</span>
+</div><div class="hljs-line">ROBOTSTXT_OBEY = False
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Configure maximum concurrent requests performed by Scrapy (default: 16)</span>
+</div><div class="hljs-line"><span class="hljs-meta">#CONCURRENT_REQUESTS = 32</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Configure a delay for requests for the same website (default: 0)</span>
+</div><div class="hljs-line"><span class="hljs-meta"># See http://scrapy.readthedocs.org/en/latest/topics/settings.html#download-delay</span>
+</div><div class="hljs-line"><span class="hljs-meta"># See also autothrottle settings and docs</span>
+</div><div class="hljs-line">DOWNLOAD_DELAY = <span class="hljs-number">5</span>     #下载时间为<span class="hljs-number">5</span>秒一次
+</div><div class="hljs-line"><span class="hljs-meta"># The download delay setting will honor only one of:</span>
+</div><div class="hljs-line"><span class="hljs-meta">#CONCURRENT_REQUESTS_PER_DOMAIN = 16</span>
+</div><div class="hljs-line"><span class="hljs-meta">#CONCURRENT_REQUESTS_PER_IP = 16</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Disable cookies (enabled by default)</span>
+</div><div class="hljs-line"><span class="hljs-meta">#COOKIES_ENABLED = False</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Disable Telnet Console (enabled by default)</span>
+</div><div class="hljs-line"><span class="hljs-meta">#TELNETCONSOLE_ENABLED = False</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Override the default request headers:</span>
+</div><div class="hljs-line"><span class="hljs-meta">#DEFAULT_REQUEST_HEADERS = {</span>
+</div><div class="hljs-line"><span class="hljs-meta">#   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',</span>
+</div><div class="hljs-line"><span class="hljs-meta">#   'Accept-Language': 'en',</span>
+</div><div class="hljs-line"><span class="hljs-meta">#}</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Enable or disable spider middlewares</span>
+</div><div class="hljs-line"><span class="hljs-meta"># See http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html</span>
+</div><div class="hljs-line"><span class="hljs-meta">#SPIDER_MIDDLEWARES = {</span>
+</div><div class="hljs-line"><span class="hljs-meta">#    'jd.middlewares.JdSpiderMiddleware': 543,</span>
+</div><div class="hljs-line"><span class="hljs-meta">#}</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Enable or disable downloader middlewares</span>
+</div><div class="hljs-line"><span class="hljs-meta"># See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html</span>
+</div><div class="hljs-line"><span class="hljs-meta">#DOWNLOADER_MIDDLEWARES = {</span>
+</div><div class="hljs-line"><span class="hljs-meta">#    'jd.middlewares.MyCustomDownloaderMiddleware': 543,</span>
+</div><div class="hljs-line"><span class="hljs-meta">#}</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Enable or disable extensions</span>
+</div><div class="hljs-line"><span class="hljs-meta"># See http://scrapy.readthedocs.org/en/latest/topics/extensions.html</span>
+</div><div class="hljs-line"><span class="hljs-meta">#EXTENSIONS = {</span>
+</div><div class="hljs-line"><span class="hljs-meta">#    'scrapy.extensions.telnet.TelnetConsole': None,</span>
+</div><div class="hljs-line"><span class="hljs-meta">#}</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Configure item pipelines</span>
+</div><div class="hljs-line"><span class="hljs-meta"># See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html</span>
+</div><div class="hljs-line">ITEM_PIPELINES = {
+</div><div class="hljs-line">   <span class="hljs-string">'jd.pipelines.JdPipeline'</span>: <span class="hljs-number">300</span>,       #激活管道
+</div><div class="hljs-line">}
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Enable and configure the AutoThrottle extension (disabled by default)</span>
+</div><div class="hljs-line"><span class="hljs-meta"># See http://doc.scrapy.org/en/latest/topics/autothrottle.html</span>
+</div><div class="hljs-line"><span class="hljs-meta">#AUTOTHROTTLE_ENABLED = True</span>
+</div><div class="hljs-line"><span class="hljs-meta"># The initial download delay</span>
+</div><div class="hljs-line"><span class="hljs-meta">#AUTOTHROTTLE_START_DELAY = 5</span>
+</div><div class="hljs-line"><span class="hljs-meta"># The maximum download delay to be set in case of high latencies</span>
+</div><div class="hljs-line"><span class="hljs-meta">#AUTOTHROTTLE_MAX_DELAY = 60</span>
+</div><div class="hljs-line"><span class="hljs-meta"># The average number of requests Scrapy should be sending in parallel to</span>
+</div><div class="hljs-line"><span class="hljs-meta"># each remote server</span>
+</div><div class="hljs-line"><span class="hljs-meta">#AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0</span>
+</div><div class="hljs-line"><span class="hljs-meta"># Enable showing throttling stats for every response received:</span>
+</div><div class="hljs-line"><span class="hljs-meta">#AUTOTHROTTLE_DEBUG = False</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-meta"># Enable and configure HTTP caching (disabled by default)</span>
+</div><div class="hljs-line"><span class="hljs-meta"># See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html#httpcache-middleware-settings</span>
+</div><div class="hljs-line"><span class="hljs-meta">#HTTPCACHE_ENABLED = True</span>
+</div><div class="hljs-line"><span class="hljs-meta">#HTTPCACHE_EXPIRATION_SECS = 0</span>
+</div><div class="hljs-line"><span class="hljs-meta">#HTTPCACHE_DIR = 'httpcache'</span>
+</div><div class="hljs-line"><span class="hljs-meta">#HTTPCACHE_IGNORE_HTTP_CODES = []</span>
+</div><div class="hljs-line"><span class="hljs-meta">#HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">import os
+</div><div class="hljs-line">MONGODB_HOST = os.environ.<span class="hljs-keyword">get</span>(<span class="hljs-string">'MONGODB_HOST'</span>,<span class="hljs-string">'127.0.0.1'</span>)   #本地数据库
+</div><div class="hljs-line">MONGODB_PORT = os.environ.<span class="hljs-keyword">get</span>(<span class="hljs-string">'MONGODB_PORT'</span>,<span class="hljs-string">'27017'</span>)    #数据库端口
+</div><div class="hljs-line">MONGODB_URI = <span class="hljs-string">'mongodb://{}:{}'</span>.format(MONGODB_HOST, MONGODB_PORT)
+</div><div class="hljs-line">MONGODB_DATABASE = os.environ.<span class="hljs-keyword">get</span>(<span class="hljs-string">'MONGODB_DATABASE'</span>,<span class="hljs-string">'jd'</span>)  #数据库名字
+</div></code></pre>
+
+<p><br></p>
+
+<ol start="5"><li rel="5">添加分布式配置，再另外多台电脑上复制<strong><code>相同</code></strong>的一份代码，就可以实现多台同时爬取 <br>
+<br></li>
+</ol>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs ini"><div class="hljs-line"><span class="hljs-attr">SCHEDULER</span> = <span class="hljs-string">"scrapy_redis.scheduler.Scheduler"</span>   #必有项：更改去重对列
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-comment"># Ensure all spiders share same duplicates filter through redis.</span>
+</div><div class="hljs-line"><span class="hljs-attr">DUPEFILTER_CLASS</span> = <span class="hljs-string">"scrapy_redis.dupefilter.RFPDupeFilter"</span>   #必有项：利用Redis去重
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-attr">REDIS_URL</span> = <span class="hljs-string">'redis://xx.xx.xx.xx:xxxx'</span>   #配置连接
+</div></code></pre></div>
+</body></html>

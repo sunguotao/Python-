@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<!-- saved from url=(0053)file:///Users/jndl/Desktop/Chrome/download%20(5).html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>实训项目（二）——去哪儿网模拟登陆</title><link href="./实训项目（二）——去哪儿网模拟登陆_files/marxico.css" rel="stylesheet"><style>.note-content  {font-family: 'Helvetica Neue', Arial, 'Hiragino Sans GB', STHeiti, 'Microsoft YaHei', 'WenQuanYi Micro Hei', SimSun, Song, sans-serif;width:800px;margin:0 auto;}</style></head><body><div id="preview-contents" class="note-content">
+
+
+
+
+<h2 id="实训项目二去哪儿网模拟登陆">实训项目（二）——去哪儿网模拟登陆</h2>
+<p>&nbsp; &nbsp; &nbsp;</p>
+<p>本节课主要是讲解如何模拟登陆去哪儿网，使用的工具是Chrome的开发者工具和requests库。两者都是之前学过的知识，这次我们把它们放在一起应用</p>
+
+
+
+<h3 id="什么是模拟登陆">什么是模拟登陆？</h3>
+
+<p>有些网站需要用户登录后才会有权限回去到所需要的信息，此时可以设计爬虫进行模拟登录</p>
+
+
+
+<h3 id="怎么做到模拟登陆呢">怎么做到模拟登陆呢？</h3>
+
+<p>把这句话补全就是： 怎么<code>(让机器)</code>模拟<code>(人在浏览器上的行为)</code>登录<code>(指定的网站)</code>。 </p>
+
+
+
+<h4 id="方式一">方式一：</h4>
+
+<p>需要使用<strong>虚拟</strong>的浏览器引擎</p>
+
+<ul><li><strong><code>优点</code></strong>： 适合几乎所有的网站登录，可以人为输入验证码  <br>
+<br></li>
+<li><strong><code>缺点</code></strong>：速度较慢 </li>
+</ul>
+
+<p>步骤：</p>
+
+<blockquote>
+  <ol><li rel="1">请求登录页面的url，比如微博的(<a href="https://passport.weibo.cn/signin/login" target="_blank">https://passport.weibo.cn/signin/login</a>)  <br>
+  <br></li>
+  <li rel="2">分析html中的<strong><code>表单数据</code></strong> <br>
+  <br>
+  <ul>
+  <li>找到输入用户名、密码的<strong><code>输入框</code></strong> <br>
+  <br></li>
+  <li>把输入框的<strong><code>text域</code></strong>替换成自己的用户名密码  <br>
+  <br></li></ul></li>
+  <li rel="3">模拟<strong><code>点击提交按钮</code></strong></li>
+  </ol>
+</blockquote>
+
+
+
+<h4 id="方式二">方式二：</h4>
+
+<p>分析登录信息<strong>提交方式</strong>，利用浏览器<strong>cookie</strong>模拟登录</p>
+
+<ul><li><strong><code>优点</code></strong>：轻量，速度快  <br>
+<br></li>
+<li><strong><code>缺点</code></strong> ：对技术要求高，对登录机制需要做针对的破解 </li>
+</ul>
+
+<p>步骤：</p>
+
+<blockquote>
+  <ol><li rel="1">分析网页结构，确认登录方式，例如<strong><code>扫码登录</code></strong>，<strong><code>账号密码登录</code></strong> <br>
+  <br></li>
+  <li rel="2">若是账号密码登陆，再确认<strong><code>有无验证码</code></strong>，及<strong><code>验证码接口</code></strong> <br>
+  <br></li>
+  <li rel="3">进行<strong><code>错误</code></strong>登陆测试，观测登陆系统的<strong><code>传码方案</code></strong>、账号密码是否<strong><code>有加密</code></strong>、是否有<strong><code>额外参数</code></strong>需要寻找、以及登陆需要传入的<strong><code>cookie</code></strong> <br>
+  <br></li>
+  <li rel="4">根据错误登陆的分析结果，去寻找<strong><code>额外的参数</code></strong>和需要传入<strong><code>cookie的来源</code></strong>，以及<strong><code>密码加密函数</code></strong> <br>
+  <br></li>
+  <li rel="5">进入<strong><code>测试</code></strong>阶段，<strong><code>反复</code></strong>测试整个过程 <br>
+  <br></li>
+  <li rel="6">编写代码</li>
+  </ol>
+</blockquote>
+
+<p>在本次项目中我们使用的是更常用的第二种方式：<strong>利用浏览器cookie模拟登录</strong></p>
+
+
+
+<h3 id="什么是cookie">什么是cookie？</h3>
+
+<p>之前的课程资料中，我们已经谈过了<a href="https://www.dcxueyuan.com/user/data/preview.html?url=/common/download?urlPath=https://static.dcxueyuan.com/content/disk/train/other/a4526dfb-000c-4cdd-b4d1-7344f29ad56e.html" target="_blank">cookie和session的关系</a>，我们在这里简单地复习一下</p>
+
+
+
+<h4 id="cookie">Cookie：</h4>
+
+<blockquote>
+  <ul><li>当用户通过浏览器首次访问一个域名时，访问的Web服务器会给客户端发送数据，以保持Web服务器与客户端之间的状态，这些数据就是Cookie <br>
+  <br></li>
+  <li>它是站点创建的，为了辨别用户身份而储存在用户本地终端上的数据，其中的信息一般都是经过加密的，存在缓存或硬盘中，在硬盘中是一些小文本文件 <br>
+  <br></li>
+  <li>当访问该网站时，就会读取对应网站的Cookie信息 <br>
+  <br></li>
+  <li><strong><code>作用：记录不同用户的访问状态</code></strong></li>
+  </ul>
+</blockquote>
+
+
+
+<h4 id="session">Session：</h4>
+
+<blockquote>
+  <ul><li>Session是另一种记录客户状态的机制，不同的是Cookie保存在客户端浏览器中，而<code>Session保存在服务器上</code> <br>
+  <br></li>
+  <li>客户端浏览器访问服务器的时候，服务器把客户端信息以某种形式记录在服务器上。这就是Session。客户端浏览器再次访问时只需要从该Session中查找该客户的状态就可以了 <br>
+  <br></li>
+  <li>如果说Cookie机制是通过检查客户身上的“通行证”来确定客户身份的话，那么Session机制就是通过检查服务器上的“客户明细表”来确认客户身份。<code>Session相当于程序在服务器上建立的一份客户档案，客户来访的时候只需要查询客户档案表就可以了</code></li>
+  </ul>
+</blockquote>
+
+
+
+<h3 id="整体思路梳理">整体思路梳理</h3>
+
+<p>做好了前期的知识储备以后，我们就开始正式模拟登陆了</p>
+
+<ol><li rel="1">分析网页登录方式，有三种：扫码登录，账号密码登录，短信验证码登录。最后确认<strong><code>使用账号密码登录</code></strong>的方式进行模拟 <br>
+<br></li>
+<li rel="2">打开<strong><code>隐身窗口</code></strong>（浏览器界面按Ctrl+Shift+N），选择使用账号密码登录后，确认<strong><code>有验证码验证</code></strong>，通过分析确认<strong><code>验证码接口</code></strong> <br>
+<br></li>
+<li rel="3">尝试错误登录，查看请求页面的<strong><code>Form Data</code></strong>，构造<strong><code>请求函数</code></strong>，尝试使用爬虫登录，发现报错，去页面查看需要<strong><code>传入的cookie</code></strong>，发现需要传入<strong><code>QN1</code></strong>，<strong><code>QN25</code></strong>，<strong><code>QN271</code></strong>，<strong><code>_i</code></strong>，<strong><code>_vi</code></strong>，<strong><code>fid</code></strong>这几个cookie <br>
+<br></li>
+<li rel="4">寻找<strong><code>cookie的来源</code></strong>，使用开发者工具<strong><code>filter</code></strong>功能中的<strong><code>set-cookie-name</code></strong>，查找cookie的来源 <br>
+<br></li>
+<li rel="5">在<strong><code>Session</code></strong>中通过<strong><code>get请求</code></strong>添加需要的cookie，再次尝试登录</li>
+</ol>
+
+<p><strong>代码实现：</strong></p>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="language-python hljs"><div class="hljs-line"><span class="hljs-keyword">import</span> requests
+</div><div class="hljs-line"><span class="hljs-keyword">import</span> re
+</div><div class="hljs-line"><span class="hljs-string">"""
+</span></div><div class="hljs-line">
+</div><div class="hljs-line">此代码共分为4部分：初始化模块，获取添加cookies模块，验证码模块，登录模块
+</div><div class="hljs-line">
+</div><div class="hljs-line">"""
+</div><div class="hljs-line">
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">start_get_session</span><span class="hljs-params">()</span>:</span>
+</div><div class="hljs-line">    session_ = requests.session()   <span class="hljs-comment">#得到一个session</span>
+</div><div class="hljs-line">    <span class="hljs-keyword">return</span> session_
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">get_base_cookies</span><span class="hljs-params">(session_)</span>:</span>
+</div><div class="hljs-line">    session_.get(<span class="hljs-string">'https://user.qunar.com/passport/login.jsp'</span>)  <span class="hljs-comment">#获得cookie参数QN1，QN25</span>
+</div><div class="hljs-line">    get_image(session_)   <span class="hljs-comment">#通过调用get_image函数，得到验证码图片</span>
+</div><div class="hljs-line">    session_.get(<span class="hljs-string">'https://user.qunar.com/passport/addICK.jsp?ssl'</span>)  <span class="hljs-comment">#获得cookie参数_i，_vi</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">    <span class="hljs-string">"""
+</span></div><div class="hljs-line">    由于获取fid参数的url需要cookie参数SESSIONID得到，所以没办法直接得到fid，需要先得到SESSIONID这个参数，再得到fid参数
+</div><div class="hljs-line">
+</div><div class="hljs-line">    """
+</div><div class="hljs-line">
+</div><div class="hljs-line">    response = session_.get(<span class="hljs-string">'https://rmcsdf.qunar.com/js/df.js?org_id=ucenter.login&amp;js_type=0'</span>)   <span class="hljs-comment">#经过查找发现SESSIONID在这个js文件中，所以先得到它  </span>
+</div><div class="hljs-line">    <span class="hljs-comment">#查找SESSIONID</span>
+</div><div class="hljs-line">    cookie_SE = re.findall(<span class="hljs-string">r'&amp;sessionId=(.*?)&amp;'</span>,response.text)[<span class="hljs-number">0</span>]  <span class="hljs-comment">#通过正则得到SESSIONID</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">    <span class="hljs-comment">#获取fid</span>
+</div><div class="hljs-line">    session_.get(<span class="hljs-string">'https://rmcsdf.qunar.com/api/device/challenge.json?callback=callback_1511693290383&amp;'</span>
+</div><div class="hljs-line">                 <span class="hljs-string">'sessionId={}&amp;domain=qunar.com&amp;orgId=ucenter.login'</span>.format(cookie_SE))
+</div><div class="hljs-line">
+</div><div class="hljs-line">    session_.cookies.update({<span class="hljs-string">'QN271'</span>:cookie_SE})  <span class="hljs-comment">#通过比对发现参数QN271和SESSIONID相同，所以直接加入cookies中</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">get_image</span><span class="hljs-params">(session_)</span>:</span>
+</div><div class="hljs-line">    response = session_.get(<span class="hljs-string">'https://user.qunar.com/captcha/api/image?k={en7mni(z&amp;'</span>
+</div><div class="hljs-line">                 <span class="hljs-string">'p=ucenter_login&amp;c=ef7d278eca6d25aa6aec7272d57f0a9a'</span>)   <span class="hljs-comment">#获得二维码的response</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">    <span class="hljs-keyword">with</span> open(<span class="hljs-string">'./img/code.png'</span> , <span class="hljs-string">'wb'</span>) <span class="hljs-keyword">as</span> f:  
+</div><div class="hljs-line">        f.write(response.content)   <span class="hljs-comment">#把二维码存进同级img文件夹下命名为code</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">login</span><span class="hljs-params">(session_ , username , password , vcode)</span>:</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">    data ={
+</div><div class="hljs-line">        <span class="hljs-string">'loginType'</span>: <span class="hljs-number">0</span>,
+</div><div class="hljs-line">        <span class="hljs-string">'username'</span>: username,
+</div><div class="hljs-line">        <span class="hljs-string">'password'</span>: password,
+</div><div class="hljs-line">        <span class="hljs-string">'remember'</span>: <span class="hljs-number">1</span>,
+</div><div class="hljs-line">        <span class="hljs-string">'vcode'</span>: vcode,
+</div><div class="hljs-line">    }
+</div><div class="hljs-line">
+</div><div class="hljs-line">    url = <span class="hljs-string">'https://user.qunar.com/passport/loginx.jsp'</span>
+</div><div class="hljs-line">    response = session_.post(url , data)   <span class="hljs-comment">#通过post请求方式，模拟登录</span>
+</div><div class="hljs-line">    print(response.text)
+</div><div class="hljs-line">
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">'__main__'</span>:   <span class="hljs-comment">#主程序，程序入口</span>
+</div><div class="hljs-line">    session = start_get_session()   <span class="hljs-comment">#实例化一个session</span>
+</div><div class="hljs-line">    get_base_cookies(session)   <span class="hljs-comment">#调用函数，在session中添加cookie</span>
+</div><div class="hljs-line">    username = input(<span class="hljs-string">'请输入账号：'</span>)   
+</div><div class="hljs-line">    password = input(<span class="hljs-string">'请输入密码：'</span>)
+</div><div class="hljs-line">    vcode = input(<span class="hljs-string">'请输入验证码：'</span>)
+</div><div class="hljs-line">    login(session, username, password, vcode)  <span class="hljs-comment">#调用登录函数</span>
+</div></code></pre>
+
+<p><br>
+<br></p>
+
+<h3 id="补充资料">补充资料</h3>
+
+
+
+<h4 id="豆瓣模拟登陆">豆瓣模拟登陆：</h4>
+
+<p>试试看，通过自己查资料，能否搞明白以下代码的作用：</p>
+
+
+
+<pre class="prettyprint hljs-dark"><code class="hljs python"><div class="hljs-line"><span class="hljs-keyword">import</span> requests
+</div><div class="hljs-line"><span class="hljs-keyword">from</span> bs4 <span class="hljs-keyword">import</span> BeautifulSoup
+</div><div class="hljs-line"><span class="hljs-keyword">from</span> PIL <span class="hljs-keyword">import</span> Image
+</div><div class="hljs-line">
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">login</span><span class="hljs-params">(username,password,source=<span class="hljs-string">'index_nav'</span>,redir=<span class="hljs-string">'https://www.douban.com/'</span>,login=<span class="hljs-string">'登录'</span>)</span>:</span>   
+</div><div class="hljs-line">    caprcha_id,caprcha_link = get_captcha(url)  
+</div><div class="hljs-line">    <span class="hljs-keyword">if</span> caprcha_id:         
+</div><div class="hljs-line">        img_html = session.get(caprcha_link)
+</div><div class="hljs-line">        <span class="hljs-keyword">with</span> open(<span class="hljs-string">'caprcha.jpg'</span>,<span class="hljs-string">'wb'</span>) <span class="hljs-keyword">as</span> f:
+</div><div class="hljs-line">            f.write(img_html.content)
+</div><div class="hljs-line">
+</div><div class="hljs-line">        caprcha = input(<span class="hljs-string">'请输入验证码：'</span>)      <span class="hljs-comment">#把看到的验证码图片输入进去</span>
+</div><div class="hljs-line">    data = {                  
+</div><div class="hljs-line">        <span class="hljs-string">'source'</span>:source,
+</div><div class="hljs-line">        <span class="hljs-string">'redir'</span>:redir,
+</div><div class="hljs-line">        <span class="hljs-string">'form_email'</span>:username,
+</div><div class="hljs-line">        <span class="hljs-string">'form_password'</span>:password,
+</div><div class="hljs-line">        <span class="hljs-string">'login'</span>:login,
+</div><div class="hljs-line">    }
+</div><div class="hljs-line">    <span class="hljs-keyword">if</span> caprcha_id:          <span class="hljs-comment">#如果需要验证码就把下面的两个数据加入到data里面</span>
+</div><div class="hljs-line">        data[<span class="hljs-string">'captcha-id'</span>] = caprcha_id
+</div><div class="hljs-line">        data[<span class="hljs-string">'captcha-solution'</span>] = caprcha
+</div><div class="hljs-line">    session.cookies.update({<span class="hljs-string">'_pk_id.100001.8cb4'</span>:<span class="hljs-string">'3f610b4a44fcaf90.1511707138.1.1511707138.1511707138'</span>,<span class="hljs-string">'_pk_ses.100001.8cb4'</span>:<span class="hljs-string">'*'</span>})
+</div><div class="hljs-line">    session.get(<span class="hljs-string">'https://accounts.douban.com/login'</span>)
+</div><div class="hljs-line">    html = session.post(url,data=data,headers=headers)
+</div><div class="hljs-line">    print(html)
+</div><div class="hljs-line">    <span class="hljs-comment"># print(a)</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">get_captcha</span><span class="hljs-params">(url)</span>:</span>       <span class="hljs-comment">#解析登入界面，获取caprcha_id和caprcha_link</span>
+</div><div class="hljs-line">    html = requests.get(url)
+</div><div class="hljs-line">    soup = BeautifulSoup(html.text,<span class="hljs-string">'lxml'</span>)
+</div><div class="hljs-line">    <span class="hljs-keyword">try</span>:
+</div><div class="hljs-line">        caprcha_link = soup.select(<span class="hljs-string">'#captcha_image'</span>)[<span class="hljs-number">0</span>][<span class="hljs-string">'src'</span>]
+</div><div class="hljs-line">        caprcha_id = soup.select(<span class="hljs-string">'div.captcha_block &gt; input'</span>)[<span class="hljs-number">1</span>][<span class="hljs-string">'value'</span>]
+</div><div class="hljs-line">        <span class="hljs-keyword">return</span> caprcha_id, caprcha_link
+</div><div class="hljs-line">    <span class="hljs-keyword">except</span>:
+</div><div class="hljs-line">        print(<span class="hljs-string">'没有验证码'</span>)
+</div><div class="hljs-line">        <span class="hljs-keyword">return</span> <span class="hljs-keyword">None</span>,<span class="hljs-keyword">None</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line"><span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">'__main__'</span>:
+</div><div class="hljs-line">    headers = {
+</div><div class="hljs-line">        <span class="hljs-string">'User-Agent'</span>: <span class="hljs-string">'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36'</span>,
+</div><div class="hljs-line">        <span class="hljs-string">'Referer'</span>: <span class="hljs-string">'https://accounts.douban.com/login?alias=&amp;redir=https%3A%2F%2Fwww.douban.com%2F&amp;source=index_nav&amp;error=1001'</span>
+</div><div class="hljs-line">
+</div><div class="hljs-line">    }
+</div><div class="hljs-line">
+</div><div class="hljs-line">    session = requests.Session()
+</div><div class="hljs-line">    session.headers.update(headers)
+</div><div class="hljs-line">
+</div><div class="hljs-line">    username = input(<span class="hljs-string">'请输入你的用户名：'</span>)
+</div><div class="hljs-line">    password = input(<span class="hljs-string">'请输入你的密码：'</span>)
+</div><div class="hljs-line">
+</div><div class="hljs-line">    url = <span class="hljs-string">'https://accounts.douban.com/login'</span>
+</div><div class="hljs-line">    login(username,password)
+</div></code></pre></div>
+
+</body></html>
